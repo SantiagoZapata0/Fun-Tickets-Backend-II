@@ -1,8 +1,4 @@
-import { userModel } from "../models/user.model.js"
-import { createHash, isValidPassword } from "../utils/utils.js"
-import { env } from "../config/env.js"
-import { registerUser } from "../services/user.service.js";
-import jwt from "jsonwebtoken";
+import { loginUser, registerUser } from "../services/user.service.js";
 
 export async function register(req, res, next){
     try{
@@ -16,33 +12,17 @@ export async function register(req, res, next){
 
 export async function login(req, res, next){
     try{
-        const { user } = req
-        const { password } = req.body;
-            
-        if(await isValidPassword(password, user.password)){
-             const sessionData = {
-                email: user.email,
-                role: user.role
-            }
-
-            const token = jwt.sign(sessionData, env.JWT_SECRET, {expiresIn: env.EXPIRES_IN})
-
-            res.status(200).json(token)
-        } else{
-            res.status(401).json({status: "Failed", payload: "Credenciales invalidas."})
-        }
-    
+        const user = await loginUser(req.body);
+        res.status(200).json({status: "Success", payload: user})
     } catch(err){
-        return res.status(500).json({ message: err.message });
+        res.status(err.status || 500).json({ message: err.message });
     }
 }
 
-export async function current(req, res, next){
-    console.log("Controller current")
+export async function currentUser(req, res, next){
     try{
-        res.status(200).json({data: req.userJWT})
-        
+        res.status(200).json({data: req.userJWT}) 
     } catch(err){
-        res.status(500).json({error: err})
+        res.status(err.status || 500).json({error: err})
     }
 }

@@ -17,7 +17,7 @@ export class UserDao extends Common{
 
     async getUserByEmail(email){
         try{
-            const result = await this.model.findOne({email});
+            const result = await this.model.findOne({email}).select("+password");
             return result
         } catch(err){
             throw err

@@ -1,5 +1,7 @@
 import { userRepository } from "../repositories/user.repository.js";
-import { createHash } from "../utils/utils.js";
+import { createHash, isValidPassword } from "../utils/utils.js"
+import { env } from "../config/env.js"
+import jwt from "jsonwebtoken";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -44,6 +46,45 @@ export async function registerUser({first_name, last_name, email, password}){
         role: newUser.role
     }
         
+}
+
+export async function loginUser({email, password}){
+
+    const normalizedEmail = email.trim().toLowerCase()
+    const user = await userRepository.getUserByEmail(normalizedEmail)
+
+    if(!email || !password){
+        const error = new Error("Todos los campos son obligatorios.");
+        error.status = 400;
+        throw error;
+    }
+
+    if(!user){
+        const error = new Error("Este usuario no esta registrado, por favor, registrate.");
+        error.status = 404;
+        throw error;
+    }
+
+    if(await isValidPassword(password, user.password)){
+        const sessionData = {
+            email: user.email,
+            role: user.role
+        }
+        const token = jwt.sign(sessionData, env.JWT_SECRET, {expiresIn: env.EXPIRES_IN});
+
+        return {
+            first_name: user.first_name,
+            last_name: user.last_name,
+            email: user.email,
+            role: user.role,
+            token: token
+        }
+
+        } else{
+            const error = new Error("Credenciales invalidas.");
+            error.status = 409;
+            throw error;
+        }
 }
 
 export async function getAllUsers(){

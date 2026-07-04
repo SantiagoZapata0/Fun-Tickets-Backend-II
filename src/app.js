@@ -8,12 +8,14 @@ import userRoutes from "./routes/user.routes.js";
 import ticketRoutes from "./routes/ticket.routes.js";
 import eventRoutes from "./routes/event.routes.js";
 import sessionRouter from "./routes/session.routes.js"
+import cookieParser from "cookie-parser";
 
 const app = express();
 
 // ! Middlewares
 
 app.use(express.json());
+app.use(cookieParser());
 app.use(express.urlencoded({extended: true}))
 
 app.use((req, res, next) => {
@@ -23,7 +25,7 @@ app.use((req, res, next) => {
 })
 
 app.get("/api/health", (req, res) => {
-    res.json({status: "ok", payload: "Servidor activo"})
+    res.json({status: "Ok", payload: "Servidor activo"})
 })
 
 // ! Routes
