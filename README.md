@@ -39,12 +39,13 @@ JWT_SECRET=mi_secreto
 
 Variables disponibles:
 
-| Variable    | Descripcion                                    |
-| ----------- | ---------------------------------------------- |
-| `PORT`      | Puerto donde se ejecuta el servidor.           |
-| `MONGO_URL` | URL de conexion a la base de datos MongoDB.    |
-| `NODE_ENV`  | Entorno de ejecución (development / production)|
-| `JWT_SECRET`| Clave secreta para tokens JWT                  |  
+| Variable        | Descripcion                                                                 |
+| --------------- | --------------------------------------------------------------------------- |
+| `PORT`          | Puerto donde se ejecuta el servidor.                                        |
+| `MONGO_URL`     | URL de conexion a la base de datos MongoDB.                                 |
+| `NODE_ENV`      | Entorno de ejecución (development / production)                             |
+| `JWT_SECRET`    | Clave secreta para tokens JWT                                               | 
+| `JWT_EXPIRES_IN`| Tiempo de expiracion del JWT (ej: "1h")                                     |
 
 ## Como ejecutar
 
@@ -85,12 +86,16 @@ http://localhost:8080
     |-- repositories/
     |   |-- user.repository.js
     |-- middlewares/
-    |   |-- session.middleware.js
+    |   |-- auth.middleware.js
     |-- utils/
     |   |-- utils.js
+    |   |-- jwt.js
+    |   |-- hash.js
     |-- dao/
     |   |-- common.dao.js
     |   |-- user.dao.js
+    |   |-- event.dao.js
+    |   |-- ticket.dao.js
     |-- config/
     |   |-- database.js
     |   `-- env.js
@@ -120,82 +125,22 @@ implementa el patrón completo.
 
 ### Health
 
-| Metodo | Ruta          | Descripcion                              |
-| ------ | ------------- | ---------------------------------------- |
-| `GET`  | `/api/health` | Obtiene informacion de estado de la API. |
+#### `GET /api/health`
+Verifica que el servidor esté activo.
 
-### Usuarios
-
-| Metodo | Ruta         | Descripcion                             |
-| ------ | ------------ | --------------------------------------- |
-| `GET`  | `/api/users` | Obtiene todos los usuarios registrados. |
-
-Modelo de usuario:
-
-```js
-{
-  first_name: String,
-  last_name: String,
-  email: String,
-  password: String,
-  role: "admin" | "organizer" | "user"
-}
+**Respuesta (200):**
+```json
+{ "status": "ok", "message": "Servidor activo" }
 ```
 
-### Eventos
+---
 
-| Metodo | Ruta          | Descripcion                                      |
-| ------ | ------------- | ------------------------------------------------ |
-| `GET`  | `/api/events` | Obtiene todos los eventos musicales disponibles. |
+### Sesiones (autenticación)
 
-Modelo de evento:
+#### `POST /api/sessions/register`
+Registra un nuevo usuario. La contraseña se guarda hasheada y nunca se devuelve.
 
-```js
-{
-  title: String,
-  description: String,
-  date: Date,
-  place: String,
-  capacity: Number,
-  price: Number,
-  status: "active" | "cancelled" | "finished"
-}
-```
-
-### Tickets
-
-| Metodo | Ruta           | Descripcion                                     |
-| ------ | -------------- | ----------------------------------------------- |
-| `GET`  | `/api/tickets` | Obtiene todos los tickets vendidos o generados. |
-
-Modelo de ticket:
-
-```js
-{
-  user: ObjectId,
-  event: ObjectId
-}
-```
-
-## Cómo probar el endpoint de registro
-
-### `POST /api/sessions/register`
-
-Registra un nuevo usuario en la plataforma. La contraseña se guarda hasheada con bcrypt y nunca se devuelve en la respuesta.
-
-**Campos esperados (body JSON):**
-
-| Campo | Tipo | Obligatorio | Descripción |
-| --- | --- | --- | --- |
-| `first_name` | String | Sí | Nombre del usuario |
-| `last_name` | String | Sí | Apellido del usuario |
-| `email` | String | Sí | Se normaliza automáticamente (trim + lowercase) |
-| `password` | String | Sí | Mínimo 6 caracteres |
-
-> El campo `role` no se acepta desde el body. Todo usuario se crea con `role: "user"` por defecto.
-
-**Ejemplo de request:**
-
+**Body:**
 ```json
 {
     "first_name": "Santiago",
@@ -206,7 +151,6 @@ Registra un nuevo usuario en la plataforma. La contraseña se guarda hasheada co
 ```
 
 **Respuesta exitosa (201):**
-
 ```json
 {
     "status": "Success",
@@ -221,21 +165,176 @@ Registra un nuevo usuario en la plataforma. La contraseña se guarda hasheada co
 }
 ```
 
-**Posibles errores:**
+**Errores posibles:** `400` (campos faltantes, email inválido, password corto), `409` (email ya registrado)
 
-| Código | Causa |
-| --- | --- |
-| `400` | Falta algún campo obligatorio |
-| `400` | El email no tiene un formato válido |
-| `400` | La contraseña tiene menos de 6 caracteres |
-| `409` | El email ya está registrado |
+---
 
-### Cómo probarlo
+#### `POST /api/sessions/login`
+Inicia sesión y devuelve un JWT en una cookie `httpOnly` llamada `currentUser`.
 
-1. Levantar el servidor con `pnpm run dev`
-2. Enviar un `POST` a `http://localhost:8080/api/sessions/register` con Postman o Insomnia, con el body indicado arriba
-3. Verificar en MongoDB (Compass o Atlas) que el campo `password` se guarda hasheado, nunca en texto plano
+**Body:**
+```json
+{
+    "email": "santiago@gmail.com",
+    "password": "123456"
+}
+```
+
+**Respuesta exitosa (200):**
+```json
+{
+    "status": "Success",
+    "payload": {
+        "first_name": "Santiago",
+        "last_name": "Zapata",
+        "email": "santiago@gmail.com",
+        "role": "user"
+    }
+}
+```
+
+> El JWT se guarda automáticamente en la cookie `currentUser` (httpOnly, sameSite: lax, expira en 1 hora). No se envía en el body.
+
+**Error (401):** siempre devuelve el mismo mensaje, sin distinguir la causa:
+```json
+{ "status": "Failed", "payload": "Credenciales inválidas." }
+```
+
+---
+
+#### `GET /api/sessions/current`
+Devuelve los datos del usuario autenticado. Requiere la cookie `currentUser` válida.
+
+**Respuesta exitosa (200):**
+```json
+{
+    "status": "Success",
+    "payload": {
+        "id": "6a446c5b146207cacaa4ed90",
+        "email": "santiago@gmail.com",
+        "role": "user"
+    }
+}
+```
+
+**Error (401):** si falta la cookie o el token es inválido/expiró.
+```json
+{ "status": "Failed", "payload": "jwt malformed" }
+```
+
+---
+
+#### `POST /api/sessions/logout`
+Elimina la cookie de sesión.
+
+**Respuesta (200):**
+```json
+{ "status": "Success", "payload": "Sesión cerrada correctamente." }
+```
+
+---
+
+### Usuarios
+
+#### `GET /api/users`
+Devuelve todos los usuarios registrados (sin contraseñas).
+
+**Respuesta (200):**
+```json
+{
+    "status": "Success",
+    "payload": [
+        {
+            "id": "6a446c5b146207cacaa4ed90",
+            "first_name": "Santiago",
+            "last_name": "Zapata",
+            "email": "santiago@gmail.com",
+            "role": "user"
+        }
+    ]
+}
+```
+
+---
+
+### Eventos
+
+#### `GET /api/events`
+Devuelve todos los eventos disponibles.
+
+#### `GET /api/events/:id`
+Devuelve un evento por su ID.
+
+#### `POST /api/events`
+Crea un nuevo evento.
+
+**Body:**
+```json
+{
+    "title": "Bandalos Chinos en Movistar Arena",
+    "description": "Presentación de su último álbum en formato acústico",
+    "date": "2026-09-20",
+    "place": "Movistar Arena",
+    "capacity": 8500,
+    "price": 12000,
+    "status": "active"
+}
+```
+
+**Respuesta exitosa (201):**
+```json
+{
+    "status": "Success",
+    "payload": {
+        "id": "6a45a66ffc79d36d6b979e94",
+        "title": "Bandalos Chinos en Movistar Arena",
+        "description": "Presentación de su último álbum en formato acústico",
+        "date": "2026-09-20T00:00:00.000Z",
+        "place": "Movistar Arena",
+        "capacity": 8500,
+        "price": 12000,
+        "status": "active"
+    }
+}
+```
+
+**Error:** `409` si ya existe un evento con ese título.
+
+---
+
+### Tickets
+
+#### `GET /api/tickets`
+Devuelve todos los tickets generados.
+
+#### `POST /api/tickets`
+Crea un ticket, validando que el usuario y el evento existan.
+
+**Body:**
+```json
+{
+    "user": "6a4155dccdb90b7c56ac07ec",
+    "event": "6a45a55e752b6c937b4e3567"
+}
+```
+
+**Respuesta exitosa (201):**
+```json
+{
+    "status": "Success",
+    "payload": {
+        "id": "6a45a66ffc79d36d6b979e94",
+        "user": "6a4155dccdb90b7c56ac07ec",
+        "event": "6a45a55e752b6c937b4e3567"
+    }
+}
+```
+
+**Errores posibles:** `400` (faltan campos), `404` (usuario o evento no existe)
 
 ## Estado actual
 
-El proyecto cuenta con rutas de consulta `GET` para usuarios, eventos, tickets, session y health check. Para completar el flujo de venta de tickets, se podrian agregar rutas `POST`, `PUT` y `DELETE`, validaciones, autenticacion y manejo de stock/capacidad de eventos.
+El proyecto cuenta con autenticación completa mediante JWT y cookies HTTP Only 
+(registro, login, sesión actual y logout), además de rutas de consulta y 
+creación para eventos y tickets. Quedan pendientes: rutas PUT/DELETE, 
+autorización por roles, y manejo de stock/capacidad de eventos.

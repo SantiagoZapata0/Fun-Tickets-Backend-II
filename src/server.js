@@ -5,7 +5,7 @@ import app from "./app.js";
 app.listen(env.PORT, () => {
 
     connectDB()
-    .then(() => console.log("Base de datos conectada."))
+    .then(() => console.log("Base de datos conectada a MongoDB Atlas"))
     .catch((err) => console.error("Error al conectar la base de datos:", err))
 
     console.log(`Server ON. Puerto: ${env.PORT}`);

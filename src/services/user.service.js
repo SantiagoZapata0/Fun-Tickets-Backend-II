@@ -1,5 +1,6 @@
 import { userRepository } from "../repositories/user.repository.js";
-import { createHash, isValidPassword } from "../utils/utils.js"
+import { createHash, isValidPassword } from "../utils/hash.js";
+import { signToken } from "../utils/jwt.js";
 import { env } from "../config/env.js"
 import jwt from "jsonwebtoken";
 
@@ -50,27 +51,29 @@ export async function registerUser({first_name, last_name, email, password}){
 
 export async function loginUser({email, password}){
 
-    const normalizedEmail = email.trim().toLowerCase()
-    const user = await userRepository.getUserByEmail(normalizedEmail)
-
     if(!email || !password){
         const error = new Error("Todos los campos son obligatorios.");
         error.status = 400;
         throw error;
     }
 
+    const normalizedEmail = email.trim().toLowerCase()
+    const user = await userRepository.getUserByEmail(normalizedEmail)
+
     if(!user){
-        const error = new Error("Este usuario no esta registrado, por favor, registrate.");
-        error.status = 404;
+        const error = new Error("Credenciales invalidas");
+        error.status = 401;
         throw error;
     }
 
     if(await isValidPassword(password, user.password)){
         const sessionData = {
+            id: user._id,
             email: user.email,
             role: user.role
         }
-        const token = jwt.sign(sessionData, env.JWT_SECRET, {expiresIn: env.EXPIRES_IN});
+
+        const token = signToken(sessionData)
 
         return {
             first_name: user.first_name,
@@ -82,7 +85,7 @@ export async function loginUser({email, password}){
 
         } else{
             const error = new Error("Credenciales invalidas.");
-            error.status = 409;
+            error.status = 401;
             throw error;
         }
 }

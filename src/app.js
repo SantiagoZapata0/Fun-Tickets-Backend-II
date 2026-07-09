@@ -1,6 +1,8 @@
 // Imports
 
 import express from "express";
+import cookieParser from "cookie-parser";
+import { env } from "./config/env.js";
 
 // Import Routes.
 
@@ -8,7 +10,8 @@ import userRoutes from "./routes/user.routes.js";
 import ticketRoutes from "./routes/ticket.routes.js";
 import eventRoutes from "./routes/event.routes.js";
 import sessionRouter from "./routes/session.routes.js"
-import cookieParser from "cookie-parser";
+import { initalizePassport } from "./config/passport.js";
+import passport from "passport";
 
 const app = express();
 
@@ -17,6 +20,9 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({extended: true}))
+
+initalizePassport();
+app.use(passport.initialize());
 
 app.use((req, res, next) => {
     const date = new Date();
