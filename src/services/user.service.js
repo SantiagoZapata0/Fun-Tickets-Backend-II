@@ -73,14 +73,11 @@ export async function loginUser({email, password}){
             role: user.role
         }
 
-        const token = signToken(sessionData)
-
         return {
             first_name: user.first_name,
             last_name: user.last_name,
             email: user.email,
             role: user.role,
-            token: token
         }
 
         } else{

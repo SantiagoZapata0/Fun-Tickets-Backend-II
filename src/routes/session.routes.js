@@ -1,12 +1,13 @@
 import { Router } from "express";
 import { register, login, currentUser, logout } from "../controllers/session.controller.js";
-import { validToken } from "../middlewares/auth.middleware.js";
+import { passportError } from "../middlewares/passport.middleware.js";
+import passport from "passport";
 
 const router = Router();
 
-router.post("/register", register);
-router.post("/login", login);
-router.get("/current", validToken, currentUser);
+router.post("/register", passportError("register"), register);
+router.post("/login", passportError("login"), login);
+router.get("/current", passportError("jwt"), currentUser);
 router.post("/logout", logout)
 
 export default router

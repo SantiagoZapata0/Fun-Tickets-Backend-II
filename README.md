@@ -86,7 +86,7 @@ http://localhost:8080
     |-- repositories/
     |   |-- user.repository.js
     |-- middlewares/
-    |   |-- auth.middleware.js
+    |   |-- passport.middleware.js
     |-- utils/
     |   |-- utils.js
     |   |-- jwt.js
@@ -120,6 +120,38 @@ http://localhost:8080
 El proyecto sigue una arquitectura en capas: Ruta → Controller → Service → 
 Repository → DAO → Modelo. El flujo de registro de usuarios (`/api/sessions/register`) 
 implementa el patrón completo.
+
+## Autenticación con Passport.js
+
+El sistema de autenticación fue refactorizado para centralizar la lógica en estrategias de Passport, ubicadas en `config/passport.config.js`. Passport se inicializa una sola vez en `app.js` (`passport.initialize()`); ninguna estrategia vive ahí.
+
+### Estrategias implementadas
+
+**`register`** (Local Strategy)
+Valida los campos, normaliza el email, verifica que no exista un usuario duplicado, hashea la contraseña y crea el usuario. Toda la lógica vive en `services/user.service.js` (`registerUser`); la estrategia solo la invoca.
+
+**`login`** (Local Strategy)
+Verifica que el email exista y que la contraseña coincida (usando bcrypt). Si las credenciales son inválidas, responde siempre con el mismo mensaje genérico, sin distinguir la causa. La estrategia **no genera el JWT**: solo autentica y deja el usuario en `req.user`. Es el controller quien, tras la autenticación exitosa, genera el token y setea la cookie.
+
+**`current`** (JWT Strategy)
+Extrae el token desde la cookie `currentUser` (no desde headers), lo verifica contra `JWT_SECRET`, y deja el payload (`{ id, email, role }`) en `req.user`. Si no hay cookie o el token es inválido/expiró, responde `401`.
+
+### Manejo de errores de Passport
+
+Las estrategias `register` y `login` usan un middleware wrapper (`passportError`) en lugar de `passport.authenticate(...)` directo, para que los mensajes de error específicos definidos en los Services (por ejemplo, `409` en email duplicado o `401` en credenciales inválidas) lleguen intactos al cliente, en vez de la respuesta genérica que da Passport por defecto.
+
+### Preparado para providers externos
+
+`passport.config.js` está estructurado para agregar nuevas estrategias (Google, GitHub, etc.) simplemente sumando un nuevo bloque `passport.use(...)` dentro de `initializePassport()`, sin necesidad de tocar `app.js` ni las rutas existentes.
+
+### Rutas de sesión (actualizado)
+
+| Método | Ruta | Estrategia usada |
+| --- | --- | --- |
+| `POST` | `/api/sessions/register` | `register` |
+| `POST` | `/api/sessions/login` | `login` |
+| `GET` | `/api/sessions/current` | `current` (JWT) |
+| `POST` | `/api/sessions/logout` | Ninguna (no requiere Passport) |
 
 ## Rutas disponibles
 
