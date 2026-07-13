@@ -98,7 +98,8 @@ http://localhost:8080
     |   |-- ticket.dao.js
     |-- config/
     |   |-- database.js
-    |   `-- env.js
+    |   |-- env.js
+    |   |-- passport.js
     |-- controllers/
     |   |-- event.controller.js
     |   |-- ticket.controller.js
