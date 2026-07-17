@@ -58,8 +58,24 @@ export async function getEventById(id){
 }
 
 export async function updateOneEvent(id, data){
-    const event = await eventRepository.updateEvent(id, data)
+
+    const updatedEvent = await eventRepository.updateEvent(id, data)
+
+    if(!updatedEvent){
+        const error = new Error("El evento no existe");
+        error.status = 404;
+        throw error;
+    }
+
     return {
-        event
+        id: updatedEvent._id,
+        title: updatedEvent.title,
+        description: updatedEvent.description,
+        date: updatedEvent.date,
+        place: updatedEvent.place,
+        capacity: updatedEvent.capacity,
+        price: updatedEvent.price,
+        status: updatedEvent.status,
+        organizer: updatedEvent.organizer
     }
 }

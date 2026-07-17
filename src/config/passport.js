@@ -1,8 +1,6 @@
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Strategy as JwtStrategy } from "passport-jwt";
-import { createHash } from "../utils/hash.js";
-import { userRepository } from "../repositories/user.repository.js";
 import { loginUser, registerUser } from "../services/user.service.js";
 import { env } from "./env.js";
 

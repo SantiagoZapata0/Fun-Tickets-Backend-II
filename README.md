@@ -10,6 +10,10 @@ Fun Tickets es una API backend para una pagina de venta de tickets para recitale
 - Mongoose
 - dotenv
 - pnpm
+- bcrypt
+- JWT (JSON Web Token)
+- Cookie-parser
+- Passport (JWT & Local)
 
 ## Instalacion
 
@@ -82,11 +86,16 @@ http://localhost:8080
     |-- public/
     |-- views/
     |-- services/
-        |-- user.services.js
+    |   |-- user.service.js
+    |   |-- ticket.service.js
+    |   |-- event.service.js
     |-- repositories/
     |   |-- user.repository.js
+    |   |-- ticket.repository.js
+    |   |-- event.repository.js
     |-- middlewares/
     |   |-- passport.middleware.js
+    |   |-- auth.middleware.js
     |-- utils/
     |   |-- utils.js
     |   |-- jwt.js
@@ -153,6 +162,60 @@ Las estrategias `register` y `login` usan un middleware wrapper (`passportError`
 | `POST` | `/api/sessions/login` | `login` |
 | `GET` | `/api/sessions/current` | `current` (JWT) |
 | `POST` | `/api/sessions/logout` | Ninguna (no requiere Passport) |
+
+## Roles y autorización
+
+El sistema implementa autorización basada en roles sobre la autenticación ya existente (JWT + cookies). Hay tres roles: `user` (default), `organizer` y `admin`. El registro público (`POST /api/sessions/register`) siempre crea usuarios con `role: "user"`; los roles `organizer` y `admin` no pueden asignarse desde el body de la petición.
+
+### Matriz de permisos
+
+| Acción | user | organizer | admin |
+| --- | --- | --- | --- |
+| Consultar eventos publicados | ✅ | ✅ | ✅ |
+| Crear eventos | ❌ | ✅ | ✅ |
+| Modificar/cancelar eventos propios | ❌ | ✅ | ✅ |
+| Modificar cualquier evento | ❌ | ❌ | ✅ |
+| Ver todos los usuarios | ❌ | ❌ | ✅ |
+
+### Middlewares de autenticación y autorización
+
+**`passportError("jwt")`** (autenticación)
+Lee el JWT desde la cookie `currentUser`, lo verifica, y puebla `req.user` con `{ id, email, role }`. Si no hay cookie o el token es inválido/expiró, responde `401`.
+
+**`authRoles(roles)`** (autorización por rol)
+Middleware reutilizable que recibe un array de roles permitidos. Compara `req.user.role` contra esa lista; si no coincide, responde `403`. Ejemplo de uso:
+```js
+router.post("/", passportError("jwt"), authRoles(["organizer", "admin"]), createNewEvent);
+```
+
+**`validateAdminOrOwner`** (autorización por propiedad del recurso)
+Middleware específico para rutas que modifican un evento puntual. Permite el acceso si el usuario es `admin`, o si es `organizer` **y** es el dueño del evento (`event.organizer === req.user.id`). En cualquier otro caso, responde `403`.
+
+### Diferencia entre 401 y 403
+
+- **`401 Unauthorized`** → no hay sesión válida (falta la cookie, el token expiró o fue manipulado). El servidor no sabe quién sos.
+- **`403 Forbidden`** → hay una sesión válida (el servidor sabe quién sos), pero tu rol o tu relación con el recurso no te habilita para esa acción.
+
+### Rutas protegidas
+
+| Método | Ruta | Middleware | Roles permitidos |
+| --- | --- | --- | --- |
+| `GET` | `/api/sessions/current` | `passportError("jwt")` | Cualquier usuario autenticado |
+| `POST` | `/api/events` | `passportError("jwt")` + `authRoles` | `organizer`, `admin` |
+| `PUT` | `/api/events/:eid` | `passportError("jwt")` + `validateAdminOrOwner` | `admin`, o `organizer` dueño del evento |
+| `GET` | `/api/users` | `passportError("jwt")` + `authRoles` | `admin` |
+
+### Ejemplos de respuesta
+
+**Sin permisos (403):**
+```json
+{ "status": "Failed", "message": "No tenés permisos para realizar esta acción" }
+```
+
+**Sin sesión (401):**
+```json
+{ "status": "Failed", "message": "No autenticado" }
+```
 
 ## Rutas disponibles
 

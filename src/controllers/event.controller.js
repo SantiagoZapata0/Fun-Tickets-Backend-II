@@ -31,9 +31,9 @@ export async function createNewEvent(req, res, next){
 export async function updateEvent(req, res, next){
   try{
     const id = req.params.eid;
-    const data = req.body;
-    const eventUpdated = await updateOneEvent(id, data);
-    return res.status(201).json({status: "Success", payload: eventUpdated})
+    const { title, description, date, place, capacity, price, status } = req.body;
+    const eventUpdated = await updateOneEvent(id, { title, description, date, place, capacity, price, status });
+    return res.status(200).json({status: "Success", payload: eventUpdated})
   } catch(err){
     return res.status(err.status || 500).json({status: "Failed", payload: err.message})
   }
