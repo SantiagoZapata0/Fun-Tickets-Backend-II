@@ -61,21 +61,14 @@ export async function loginUser({email, password}){
     const user = await userRepository.getUserByEmail(normalizedEmail)
 
     if(!user){
-        const error = new Error("Credenciales invalidas");
+        const error = new Error("Credenciales invalidas.");
         error.status = 401;
         throw error;
     }
 
     if(await isValidPassword(password, user.password)){
-        const sessionData = {
-            id: user._id,
-            email: user.email,
-            role: user.role
-        }
-
         return {
-            first_name: user.first_name,
-            last_name: user.last_name,
+            id: user._id,
             email: user.email,
             role: user.role,
         }

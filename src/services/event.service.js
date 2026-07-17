@@ -1,15 +1,16 @@
 import { eventRepository } from "../repositories/event.repository.js";
+import { userRepository } from "../repositories/user.repository.js";
 
-export async function createEvent({title, description, date, place, capacity, price, status}){
+export async function createEvent({title, description, date, place, capacity, price, status, organizer}){
     
     const existingEvent = await eventRepository.getEventByTitle(title)
     if(existingEvent){
-        const error = new Error("El nombre de este evento ya se encuentra registrado.")
+        const error = new Error("Credenciales invalidas.")
         error.status = 409;
         throw error;
     }
     
-    const event = await eventRepository.createEvent({title, description, date, place, capacity, price, status})
+    const event = await eventRepository.createEvent({title, description, date, place, capacity, price, status, organizer})
 
     return {
         title: event.title,
@@ -18,7 +19,8 @@ export async function createEvent({title, description, date, place, capacity, pr
         place: event.place,
         capacity: event.capacity,
         price: event.price,
-        status: event.status
+        status: event.status,
+        organizer: event.organizer
     }
 }
 
@@ -39,7 +41,7 @@ export async function getAllEvents() {
 export async function getEventById(id){
     const event = await eventRepository.getEventById(id)
     if(!event){
-        const error = new Error("El evento no existe.");
+        const error = new Error("Credenciales invalidas.");
         error.status = 404;
         throw error;
     }
@@ -52,5 +54,12 @@ export async function getEventById(id){
         capacity: event.capacity,
         price: event.price,
         status: event.status
+    }
+}
+
+export async function updateOneEvent(id, data){
+    const event = await eventRepository.updateEvent(id, data)
+    return {
+        event
     }
 }

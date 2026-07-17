@@ -13,9 +13,9 @@ export async function register(req, res, next){
 
 export async function login(req, res, next){
     try{
-        const sessionData = { id: req.user.id, email: req.user.email, role: req.user.role };
-        const token = signToken(sessionData)
-        return res.cookie("currentUser", token, { secure: env.NODE_ENV === "production", sameSite: "lax", httpOnly: true, maxAge: 3600000 }).status(200).json({status: "Success", payload: sessionData})
+        const { id, email, role } = await loginUser(req.body);
+        const token = signToken({id, email, role})
+        return res.cookie("currentUser", token, { secure: env.NODE_ENV === "production", sameSite: "lax", httpOnly: true, maxAge: 3600000 }).status(200).json({status: "Success", payload: {id, email, role}})
     } catch(err){
         return res.status(err.status || 500).json({status: "Failed", payload: err.message });
     }

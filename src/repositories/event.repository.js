@@ -14,7 +14,11 @@ export class EventRepository{
     }
 
     async getEventByTitle(title){
-        return await eventDao.getEventByTitle(title)
+        return await eventDao.getEventByTitle(title);
+    }
+
+    async updateEvent(id, eventData){
+        return await eventDao.update(id, eventData);
     }
 }
 

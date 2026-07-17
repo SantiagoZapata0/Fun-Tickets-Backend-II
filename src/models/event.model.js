@@ -1,4 +1,4 @@
-import { Schema, model } from "mongoose";
+import { Schema, model, Types} from "mongoose";
 
 const eventCollection = "events";
 
@@ -32,6 +32,10 @@ const eventSchema = new Schema({
             enum: ["active", "cancelled", "finished"],
             default: "active",
       },
+      organizer:{
+            type: Types.ObjectId,
+            ref: "users"
+      }
 });
 
 export const eventModel = model(eventCollection, eventSchema);
