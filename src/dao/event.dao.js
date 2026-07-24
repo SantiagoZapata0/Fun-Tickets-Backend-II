@@ -32,6 +32,17 @@ export class EventDao extends Common{
             throw err
         }
     }
+
+    async getFiltered(filter, options){
+        try{
+            const { skip, limit, sort } = options;
+            const events = await this.model.find(filter).sort(sort).skip(skip).limit(limit);
+            const total = await this.model.countDocuments(filter);
+            return { events, total };
+        } catch(err){
+            throw err
+        }
+    }
 }
 
 export const eventDao = new EventDao();

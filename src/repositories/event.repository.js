@@ -20,6 +20,10 @@ export class EventRepository{
     async updateEvent(id, eventData){
         return await eventDao.update(id, eventData);
     }
+
+    async getFilteredEvents(filter, options){
+        return await eventDao.getFiltered(filter, options)
+    }
 }
 
 export const eventRepository = new EventRepository();

@@ -1,4 +1,4 @@
-import { getEventById, createEvent, getAllEvents, updateOneEvent } from "../services/event.service.js";
+import { getEventById, createEvent, getAllEvents, updateOneEvent, updateEventStatus } from "../services/event.service.js";
 
 export async function getOneEvent(req, res, next){
   try{
@@ -11,7 +11,7 @@ export async function getOneEvent(req, res, next){
 
 export async function getEvents(req, res, next){
   try{
-    const events = await getAllEvents()
+    const events = await getAllEvents(req.query)
     res.status(200).json({status: "Success", payload: events})
   } catch(err){
     res.status(err.status || 500).json({status: "Failed", payload: err.message})
@@ -37,4 +37,15 @@ export async function updateEvent(req, res, next){
   } catch(err){
     return res.status(err.status || 500).json({status: "Failed", payload: err.message})
   }
-} 
+}
+
+export async function changeEventStatus(req, res, next){
+  try{
+    const { eid } = req.params;
+    const { status } = req.body;
+    const updatedEvent = await updateEventStatus(eid, status);
+    return res.status(200).json({status: "Success", payload: updatedEvent});
+  } catch(err){
+    return res.status(err.status || 500).json({status: "Failed", payload: err.message})
+  }
+}

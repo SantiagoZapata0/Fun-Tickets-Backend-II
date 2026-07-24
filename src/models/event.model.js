@@ -11,30 +11,37 @@ const eventSchema = new Schema({
             type: String, 
             required: true 
       },
+      category:{
+            type: String,
+            required: true
+      },
       date: { 
             type: Date, 
             required: true
       },
-      place: { 
+      location: { 
             type: String, 
             required: true
       },
       capacity: { 
             type: Number, 
-            required: true 
+            required: true,
+            min: 1
       },
       price: { 
             type: Number, 
-            default: 0 
+            default: 0,
+            min: 0
       },
       status: {
             type: String,
-            enum: ["active", "cancelled", "finished"],
-            default: "active",
+            enum: ["draft", "published", "cancelled", "finished"],
+            default: "draft",
       },
       organizer:{
             type: Types.ObjectId,
-            ref: "users"
+            ref: "users",
+            required: true
       }
 });
 

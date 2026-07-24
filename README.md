@@ -217,6 +217,87 @@ Middleware específico para rutas que modifican un evento puntual. Permite el ac
 { "status": "Failed", "message": "No autenticado" }
 ```
 
+## Entidad Events
+
+### Modelo Event
+
+| Campo | Tipo | Detalle |
+| --- | --- | --- |
+| `title` | String | Obligatorio |
+| `description` | String | Obligatorio |
+| `category` | String | Obligatorio |
+| `date` | Date | Obligatorio; no puede ser una fecha pasada al crear |
+| `location` | String | Obligatorio |
+| `capacity` | Number | Obligatorio, debe ser mayor a 0 |
+| `price` | Number | Debe ser mayor o igual a 0 (default: 0) |
+| `status` | String | `draft` \| `published` \| `cancelled` \| `finished` (default: `draft`) |
+| `organizer` | ObjectId | Referencia al `User` que creó el evento. Se asigna automáticamente desde la sesión, nunca desde el body |
+
+### Rutas
+
+| Método | Ruta | Acceso |
+| --- | --- | --- |
+| `POST` | `/api/events` | `organizer`, `admin` |
+| `GET` | `/api/events` | Público |
+| `GET` | `/api/events/:id` | Público |
+| `PUT` | `/api/events/:id` | Dueño del evento o `admin` |
+| `PATCH` | `/api/events/:id/status` | Dueño del evento o `admin` |
+
+### Reglas de negocio
+
+- Al crear un evento, `organizer` se asigna automáticamente desde `req.user`. No se puede manipular desde el body.
+- Un `organizer` solo puede modificar (`PUT` o `PATCH /status`) sus propios eventos. Un `admin` puede modificar cualquiera.
+- No se puede crear un evento con `date` pasada.
+- No se puede publicar (`status: "published"`) un evento que ya esté `finished` o `cancelled`.
+- No se puede modificar (ni con `PUT` ni con `PATCH /status`) un evento que esté `cancelled`.
+- `capacity` debe ser mayor a 0; `price` no puede ser negativo.
+- Los eventos nunca se eliminan físicamente. "Cancelar" un evento significa cambiar su `status` a `cancelled`.
+- Todas las validaciones de negocio viven en la capa de `services`, no en rutas ni controllers.
+
+### Listado con filtros (`GET /api/events`)
+
+Query params disponibles:
+
+| Parámetro | Descripción |
+| --- | --- |
+| `status` | Filtra por estado exacto (`draft`, `published`, `cancelled`, `finished`) |
+| `category` | Filtra por categoría exacta |
+| `location` | Filtra por ubicación exacta |
+| `dateFrom` | Eventos desde esta fecha (inclusive) |
+| `dateTo` | Eventos hasta esta fecha (inclusive) |
+| `page` | Número de página (default: 1) |
+| `limit` | Resultados por página (default: 10) |
+| `sort` | Campo de ordenamiento (ej: `date`, `-date` para descendente) |
+
+**Ejemplo:**
+
+GET /api/events?status=published&category=workshop&page=1&limit=5
+
+**Respuesta:**
+```json
+{
+    "status": "Success",
+    "payload": {
+        "data": [ /* array de eventos */ ],
+        "page": 1,
+        "limit": 5,
+        "total": 12,
+        "totalPages": 3
+    }
+}
+```
+
+### Cambiar estado de un evento
+
+`PATCH /api/events/:id/status`
+
+**Body:**
+```json
+{ "status": "published" }
+```
+
+Valores posibles: `draft`, `published`, `cancelled`, `finished`. Sujeto a las reglas de negocio (no se puede publicar un evento cancelado/finalizado, no se puede modificar un evento ya cancelado).
+
 ## Rutas disponibles
 
 ### Health
