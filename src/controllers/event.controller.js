@@ -1,3 +1,4 @@
+import { transporter } from "../config/nodemailer.js";
 import { getEventById, createEvent, getAllEvents, updateOneEvent, updateEventStatus } from "../services/event.service.js";
 
 export async function getOneEvent(req, res, next){
@@ -11,6 +12,13 @@ export async function getOneEvent(req, res, next){
 
 export async function getEvents(req, res, next){
   try{
+
+    transporter.sendMail({
+      from: "mollie7@ethereal.email",
+      to: "mollie7@ethereal.email",
+      subject: "Nodemailer - test",
+      html: "<h1>Hola nodemailer</h1>"
+    })
     const events = await getAllEvents(req.query)
     res.status(200).json({status: "Success", payload: events})
   } catch(err){

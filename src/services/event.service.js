@@ -1,11 +1,19 @@
-import { EventRepository, eventRepository } from "../repositories/event.repository.js";
-import { userRepository } from "../repositories/user.repository.js";
+import { eventRepository } from "../repositories/event.repository.js";
+import { categoryRepository } from "../repositories/category.repository.js";
 
 export async function createEvent({title, description, category, date, location, capacity, price, status, organizer}){
 
     if(!title || !description || !category || !location){
         const error = new Error("Todos los campos son obligatorios.");
         error.status = 400;
+        throw error;
+    }
+
+    const existingCategory = await categoryRepository.getCategoryById(category);
+
+    if(!existingCategory){
+        const error = new Error("Categoria inexistente.");
+        error.status = 404;
         throw error;
     }
 
@@ -32,7 +40,7 @@ export async function createEvent({title, description, category, date, location,
     
     const existingEvent = await eventRepository.getEventByTitle(title)
     if(existingEvent){
-        const error = new Error("Credenciales invalidas.")
+        const error = new Error("El evento ya existe.")
         error.status = 409;
         throw error;
     }

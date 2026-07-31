@@ -1,7 +1,7 @@
 import { Common } from "./common.dao.js";
 import { ticketModel } from "../models/ticket.model.js";
 
-export class TicketDao extends Common{
+class TicketDao extends Common{
     constructor(){
         super(ticketModel)
     }

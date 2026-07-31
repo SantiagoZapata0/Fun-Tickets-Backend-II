@@ -1,7 +1,7 @@
 import { Common } from "./common.dao.js";
 import { userModel } from "../models/user.model.js";
 
-export class UserDao extends Common{
+class UserDao extends Common{
     constructor(){
         super(userModel)
     }

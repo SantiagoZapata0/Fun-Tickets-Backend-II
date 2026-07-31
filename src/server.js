@@ -10,3 +10,5 @@ app.listen(env.PORT, () => {
 
     console.log(`Server ON. Puerto: ${env.PORT}`);
 });
+
+const filter = {category: "music", date: {$gte: new Date("2026-01-01")}}

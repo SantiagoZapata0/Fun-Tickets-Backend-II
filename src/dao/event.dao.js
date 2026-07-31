@@ -1,7 +1,7 @@
 import { Common } from "./common.dao.js";
 import { eventModel } from "../models/event.model.js"
 
-export class EventDao extends Common{
+class EventDao extends Common{
     constructor(){
         super(eventModel)
     }

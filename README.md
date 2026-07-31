@@ -14,6 +14,7 @@ Fun Tickets es una API backend para una pagina de venta de tickets para recitale
 - JWT (JSON Web Token)
 - Cookie-parser
 - Passport (JWT & Local)
+- Nodemailer
 
 ## Instalacion
 

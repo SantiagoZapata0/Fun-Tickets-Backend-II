@@ -1,6 +1,6 @@
 import { eventDao } from "../dao/event.dao.js"
 
-export class EventRepository{
+class EventRepository{
     async getAllEvents(){
         return await eventDao.getAll();
     }

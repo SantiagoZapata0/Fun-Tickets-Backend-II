@@ -11,7 +11,8 @@ import { env } from "./config/env.js";
 import userRoutes from "./routes/user.routes.js";
 import ticketRoutes from "./routes/ticket.routes.js";
 import eventRoutes from "./routes/event.routes.js";
-import sessionRouter from "./routes/session.routes.js"
+import sessionRoutes from "./routes/session.routes.js";
+import categoryRoutes from "./routes/category.routes.js"
 
 const app = express();
 
@@ -39,6 +40,7 @@ app.use(passport.initialize());
 app.use("/api/users", userRoutes);
 app.use("/api/tickets", ticketRoutes);
 app.use("/api/events", eventRoutes);
-app.use("/api/sessions", sessionRouter);
+app.use("/api/sessions", sessionRoutes);
+app.use("/api/categories", categoryRoutes)
 
 export default app;
