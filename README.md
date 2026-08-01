@@ -40,6 +40,12 @@ PORT=8080
 MONGO_URL=mongodb://127.0.0.1:27017/fun-tickets
 NODE_ENV=development
 JWT_SECRET=mi_secreto
+JWT_EXPIRES_IN=1h
+MAIL_HOST=smtp.server 
+MAIL_PORT=587 
+MAIL_USER=smtp@ethereal.email
+MAIL_PASS=password123
+MAIL_FROM=smtp@ethereal.email 
 ```
 
 Variables disponibles:
@@ -51,6 +57,11 @@ Variables disponibles:
 | `NODE_ENV`      | Entorno de ejecución (development / production)                             |
 | `JWT_SECRET`    | Clave secreta para tokens JWT                                               | 
 | `JWT_EXPIRES_IN`| Tiempo de expiracion del JWT (ej: "1h")                                     |
+| `MAIL_HOST`     | Host del servidor SMTP                                                      |
+| `MAIL_PORT`     | Puerto del servidor SMTP                                                    |
+| `MAIL_USER`     | Usuario/cuenta de email                                                     |
+| `MAIL_PASS`     | Contraseña de la cuenta (o contraseña de aplicación)                        |
+| `MAIL_FROM`     | Dirección que figura como remitente                                         |
 
 ## Como ejecutar
 
@@ -81,16 +92,18 @@ http://localhost:8080
 |-- package.json
 |-- pnpm-lock.yaml
 |-- README.md
-`-- src
+|-- src
     |-- app.js
     |-- server.js
     |-- public/
     |-- views/
     |-- services/
+    |   |-- category.service.js
     |   |-- user.service.js
     |   |-- ticket.service.js
     |   |-- event.service.js
     |-- repositories/
+    |   |-- category.repository.js
     |   |-- user.repository.js
     |   |-- ticket.repository.js
     |   |-- event.repository.js
@@ -106,24 +119,29 @@ http://localhost:8080
     |   |-- user.dao.js
     |   |-- event.dao.js
     |   |-- ticket.dao.js
+    |   |-- category.dao.js
     |-- config/
     |   |-- database.js
     |   |-- env.js
     |   |-- passport.js
+    |   |-- nodemailer.js
     |-- controllers/
     |   |-- event.controller.js
     |   |-- ticket.controller.js
     |   |-- session.controller.js
-    |   `-- user.controller.js
+    |   |-- user.controller.js
+    |   |-- category.controller.js
     |-- models/
     |   |-- event.model.js
     |   |-- ticket.model.js
-    |   `-- user.model.js
-    `-- routes/
-        |-- event.routes.js
-        |-- ticket.routes.js
-        |-- session.routes.js
-        `-- user.routes.js
+    |   |-- user.model.js
+    |   |-- category.model.js
+    |-- routes/
+    |   |-- event.routes.js
+    |   |-- ticket.routes.js
+    |   |-- session.routes.js
+    |   |-- user.routes.js
+    |   |-- category.routes.js
 ```
 
 ## Notas sobre la arquitectura
@@ -218,6 +236,25 @@ Middleware específico para rutas que modifican un evento puntual. Permite el ac
 { "status": "Failed", "message": "No autenticado" }
 ```
 
+## Categorías
+
+`Category` es una entidad de referencia usada por `Event` (`category: ObjectId`). Permite mantener un listado consistente de categorías válidas en vez de strings libres sueltos en cada evento.
+
+### Modelo Category
+
+| Campo | Tipo | Detalle |
+| --- | --- | --- |
+| `name` | String | Obligatorio, único |
+
+### Rutas
+
+| Método | Ruta | Acceso |
+| --- | --- | --- |
+| `GET` | `/api/categories` | Público |
+| `POST` | `/api/categories` | `admin` |
+
+Al crear o modificar un evento, el campo `category` debe corresponder al `id` de una categoría existente; si no, la petición responde `404`.
+
 ## Entidad Events
 
 ### Modelo Event
@@ -243,6 +280,7 @@ Middleware específico para rutas que modifican un evento puntual. Permite el ac
 | `GET` | `/api/events/:id` | Público |
 | `PUT` | `/api/events/:id` | Dueño del evento o `admin` |
 | `PATCH` | `/api/events/:id/status` | Dueño del evento o `admin` |
+
 
 ### Reglas de negocio
 
@@ -298,6 +336,65 @@ GET /api/events?status=published&category=workshop&page=1&limit=5
 ```
 
 Valores posibles: `draft`, `published`, `cancelled`, `finished`. Sujeto a las reglas de negocio (no se puede publicar un evento cancelado/finalizado, no se puede modificar un evento ya cancelado).
+
+## Tickets, inscripciones y control de cupos
+
+### Modelo Ticket
+
+| Campo | Tipo | Detalle |
+| --- | --- | --- |
+| `user` | ObjectId | Referencia al usuario que se inscribió (obligatorio) |
+| `event` | ObjectId | Referencia al evento (obligatorio) |
+| `status` | String | `confirmed` \| `pending` \| `cancelled` (default: `confirmed`) |
+| `quantity` | Number | Cantidad de lugares reservados en este ticket (mínimo 1) |
+| `reservationCode` | String | Código único generado automáticamente por el sistema, nunca por el cliente |
+| `createdAt` | Date | Generado automáticamente (timestamps) |
+| `cancelledAt` | Date | Se completa solo al cancelar; `null` mientras el ticket esté activo |
+
+### Rutas
+
+| Método | Ruta | Acceso |
+| --- | --- | --- |
+| `POST` | `/api/events/:eid/tickets` | Cualquier usuario autenticado |
+| `GET` | `/api/tickets/my-tickets` | Autenticado (solo sus propios tickets) |
+| `GET` | `/api/events/:eid/tickets` | Dueño del evento (`organizer`) o `admin` |
+| `PATCH` | `/api/tickets/:tid/cancel` | Dueño del ticket o `admin` |
+
+### Flujo de inscripción (`POST /api/events/:eid/tickets`)
+
+1. El evento debe existir (si no, `404`).
+2. El evento debe estar en estado `published` (si está en `draft`, `cancelled` o `finished`, error `400`).
+3. La `quantity` solicitada debe ser un número mayor a 0.
+4. El usuario no puede tener ya un ticket activo para ese mismo evento (si lo tiene, error `400`/`409`).
+5. Debe haber cupo disponible: `capacity` del evento menos la suma de `quantity` de todos los tickets **no cancelados** de ese evento.
+6. Si todas las validaciones pasan, se genera un `reservationCode` único, se crea el ticket con `status: "confirmed"`, y se envía un email de confirmación al usuario.
+
+### Regla de cupos
+
+Los cupos ocupados se calculan sumando el campo `quantity` de todos los tickets de un evento **cuyo `status` no sea `cancelled`**. Un ticket cancelado libera automáticamente ese espacio: no se resta manualmente, simplemente deja de contarse en la suma.
+
+### Cancelación (`PATCH /api/tickets/:tid/cancel`)
+
+- El ticket debe existir (`404` si no).
+- Solo puede cancelarlo el dueño del ticket o un `admin` (`403` en cualquier otro caso).
+- No se puede cancelar un ticket que ya esté cancelado (`400`).
+- Cancelar **no borra** el documento: cambia `status` a `cancelled` y completa `cancelledAt` con la fecha actual.
+
+### Notificaciones por email (Nodemailer)
+
+Al confirmarse una inscripción, se envía automáticamente un email con los datos del evento, la cantidad reservada y el código de reserva. Si el envío del email falla, el error se registra en consola pero **no afecta** la creación del ticket (el usuario ya tiene su lugar reservado independientemente del email).
+
+**Variables de entorno necesarias:**
+
+| Variable | Descripción |
+| --- | --- |
+| `MAIL_HOST` | Host del servidor SMTP |
+| `MAIL_PORT` | Puerto del servidor SMTP |
+| `MAIL_USER` | Usuario/cuenta de email |
+| `MAIL_PASS` | Contraseña de la cuenta (o contraseña de aplicación) |
+| `MAIL_FROM` | Dirección que figura como remitente |
+
+> En desarrollo se usa [Ethereal Email](https://ethereal.email/), un servicio de testing que no envía correos reales: los emails quedan disponibles para previsualizar mediante un link generado por Nodemailer, sin llegar a ninguna bandeja de entrada real.
 
 ## Rutas disponibles
 
@@ -433,86 +530,10 @@ Devuelve todos los usuarios registrados (sin contraseñas).
 }
 ```
 
----
-
-### Eventos
-
-#### `GET /api/events`
-Devuelve todos los eventos disponibles.
-
-#### `GET /api/events/:id`
-Devuelve un evento por su ID.
-
-#### `POST /api/events`
-Crea un nuevo evento.
-
-**Body:**
-```json
-{
-    "title": "Bandalos Chinos en Movistar Arena",
-    "description": "Presentación de su último álbum en formato acústico",
-    "date": "2026-09-20",
-    "place": "Movistar Arena",
-    "capacity": 8500,
-    "price": 12000,
-    "status": "active"
-}
-```
-
-**Respuesta exitosa (201):**
-```json
-{
-    "status": "Success",
-    "payload": {
-        "id": "6a45a66ffc79d36d6b979e94",
-        "title": "Bandalos Chinos en Movistar Arena",
-        "description": "Presentación de su último álbum en formato acústico",
-        "date": "2026-09-20T00:00:00.000Z",
-        "place": "Movistar Arena",
-        "capacity": 8500,
-        "price": 12000,
-        "status": "active"
-    }
-}
-```
-
-**Error:** `409` si ya existe un evento con ese título.
-
----
-
-### Tickets
-
-#### `GET /api/tickets`
-Devuelve todos los tickets generados.
-
-#### `POST /api/tickets`
-Crea un ticket, validando que el usuario y el evento existan.
-
-**Body:**
-```json
-{
-    "user": "6a4155dccdb90b7c56ac07ec",
-    "event": "6a45a55e752b6c937b4e3567"
-}
-```
-
-**Respuesta exitosa (201):**
-```json
-{
-    "status": "Success",
-    "payload": {
-        "id": "6a45a66ffc79d36d6b979e94",
-        "user": "6a4155dccdb90b7c56ac07ec",
-        "event": "6a45a55e752b6c937b4e3567"
-    }
-}
-```
-
-**Errores posibles:** `400` (faltan campos), `404` (usuario o evento no existe)
-
 ## Estado actual
 
-El proyecto cuenta con autenticación completa mediante JWT y cookies HTTP Only 
-(registro, login, sesión actual y logout), además de rutas de consulta y 
-creación para eventos y tickets. Quedan pendientes: rutas PUT/DELETE, 
-autorización por roles, y manejo de stock/capacidad de eventos.
+El proyecto cuenta con autenticación completa (JWT + cookies + Passport), 
+autorización por roles, CRUD completo de eventos con filtros y paginación, 
+categorías como entidad propia, y el flujo completo de inscripciones: 
+creación de tickets con control de cupos, cancelaciones, y notificaciones 
+por email con Nodemailer.

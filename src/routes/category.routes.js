@@ -8,6 +8,6 @@ const router = Router();
 router.use(passportError("jwt"));
 
 router.get("/", getAllCategories);
-router.post("/", authRoles(["admin", "organizer"]), createOneCategory);
+router.post("/", authRoles(["admin"]), createOneCategory);
 
 export default router;

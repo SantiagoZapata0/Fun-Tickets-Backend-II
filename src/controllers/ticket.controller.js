@@ -1,17 +1,13 @@
-import { getAllTickets, createTicket } from "../services/ticket.service.js";
+import { purchaseTicket, getUserTicketsList, cancelTicket } from "../services/ticket.service.js";
 
-export async function getTickets(req, res, next){
+export async function purchaseTickets(req, res, next){
     try{
-        const tickets = await getAllTickets()
-        return res.status(200).json({status: "Success", payload: tickets})
-    } catch(err){
-        return res.status(err.status || 500).json({status: "Failed", message: err.message });
-    }
-}
-
-export async function getTicketById(req, res, next){
-    try{
-
+        const email = req.user.email;
+        const user = req.user.id;
+        const event = req.params.eid;
+        const { quantity } = req.body
+        const tickets = await purchaseTicket({user, email, event, quantity})
+        return res.status(201).json({status: "Success", payload: tickets})
     } catch(err){
         return res.status(err.status || 500).json({status: "Failed", message: err.message });
     }
@@ -19,26 +15,22 @@ export async function getTicketById(req, res, next){
 
 export async function getMyTickets(req, res, next){
     try{
-        
+        const userId = req.user.id;
+        const tickets = await getUserTicketsList(userId);
+        return res.status(200).json({status: "Success", payload: tickets});
     } catch(err){
-        return res.status(err.status || 500).json({status: "Failed", message: err.message });
+        return res.status(err.status || 500).json({status: "Failed", message: err.message});
     }
 }
 
-export async function createNewTicket(req, res, next){
-    const {user, event} = req.body;
+export async function cancelTicketController(req, res, next){
     try{
-        const result = await createTicket({user, event})
-        return res.status(201).json({status: "Success", payload: result})
+        const { tid } = req.params;
+        const userId = req.user.id;
+        const role = req.user.role;
+        const cancelledTicket = await cancelTicket(tid, userId, role);
+        return res.status(200).json({status: "Success", payload: cancelledTicket});
     } catch(err){
-        return res.status(err.status || 500).json({status: "Failed", message: err.message})
-    }
-}
-
-export async function cancelTicket(req, res, next){
-    try{
-        
-    } catch(err){
-        return res.status(err.status || 500).json({status: "Failed", message: err.message });
+        return res.status(err.status || 500).json({status: "Failed", message: err.message});
     }
 }

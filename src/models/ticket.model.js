@@ -16,7 +16,7 @@ const ticketSchema = new Schema({
     status:{
         type: String,
         enum: ["confirmed", "pending", "cancelled"],
-        default: "active"
+        default: "confirmed"
     },
     quantity:{
         type: Number,

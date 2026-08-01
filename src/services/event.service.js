@@ -166,6 +166,19 @@ export async function getEventById(id){
     }
 }
 
+export async function getEventTicketsList(eventId){
+    const tickets = await ticketRepository.getEventTickets(eventId);
+    return tickets.map(tick => ({
+        id: tick._id,
+        user: tick.user,
+        quantity: tick.quantity,
+        status: tick.status,
+        reservationCode: tick.reservationCode,
+        createdAt: tick.createdAt,
+        cancelledAt: tick.cancelledAt
+    }));
+}
+
 export async function updateOneEvent(id, data){
 
    const existingEvent = await eventRepository.getEventById(id);
