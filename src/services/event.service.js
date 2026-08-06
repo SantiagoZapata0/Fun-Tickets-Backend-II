@@ -1,5 +1,8 @@
 import { eventRepository } from "../repositories/event.repository.js";
 import { categoryRepository } from "../repositories/category.repository.js";
+import { ticketRepository } from "../repositories/ticket.repository.js";
+import EventDTO from "../dto/event.dto.js";
+import TicketDTO from "../dto/ticket.dto.js";
 
 export async function createEvent({title, description, category, date, location, capacity, price, status, organizer}){
 
@@ -47,18 +50,7 @@ export async function createEvent({title, description, category, date, location,
     
     const event = await eventRepository.createEvent({title, description, category, date, location, capacity, price, organizer})
 
-    return {
-        id: event._id,
-        title: event.title,
-        description: event.description,
-        category: event.category,
-        date: event.date,
-        location: event.location,
-        capacity: event.capacity,
-        price: event.price,
-        status: event.status,
-        organizer: event.organizer
-    }
+    return new EventDTO(event)
 }
 
 export async function getAllEvents(queryParams) {
@@ -86,18 +78,7 @@ export async function getAllEvents(queryParams) {
     const { events, total } = await eventRepository.getFilteredEvents(filter, {skip, limit: limitNum, sort: sortOption});
     return {
         data: 
-            events.map(event => ({
-                id: event._id,
-                title: event.title,
-                description: event.description,
-                category: event.category,
-                date: event.date,
-                location: event.location,
-                capacity: event.capacity,
-                price: event.price,
-                status: event.status,
-                organizer: event.organizer
-        })),
+            events.map(event => new EventDTO(event)),
         page: pageNum,
         limit: limitNum,
         total,
@@ -136,11 +117,7 @@ export async function updateEventStatus(id, newStatus){
 
     const updatedEvent = await eventRepository.updateEvent(id, {status: newStatus});
 
-    return {
-        id: updatedEvent._id,
-        title: updatedEvent.title,
-        status: updatedEvent.status
-    }
+    return new EventDTO(updatedEvent);
 }
 
 export async function getEventById(id){
@@ -152,31 +129,12 @@ export async function getEventById(id){
         throw error;
     }
 
-    return {
-        id: event._id,
-        title: event.title,
-        description: event.description,
-        category: event.category,
-        date: event.date,
-        location: event.location,
-        capacity: event.capacity,
-        price: event.price,
-        status: event.status,
-        organizer: event.organizer
-    }
+    return new EventDTO(event);
 }
 
 export async function getEventTicketsList(eventId){
     const tickets = await ticketRepository.getEventTickets(eventId);
-    return tickets.map(tick => ({
-        id: tick._id,
-        user: tick.user,
-        quantity: tick.quantity,
-        status: tick.status,
-        reservationCode: tick.reservationCode,
-        createdAt: tick.createdAt,
-        cancelledAt: tick.cancelledAt
-    }));
+    return tickets.map(tick => new TicketDTO(tick));
 }
 
 export async function updateOneEvent(id, data){
@@ -215,16 +173,5 @@ export async function updateOneEvent(id, data){
 
     const updatedEvent = await eventRepository.updateEvent(id, data)
 
-    return {
-        id: updatedEvent._id,
-        title: updatedEvent.title,
-        description: updatedEvent.description,
-        category: updatedEvent.category,
-        date: updatedEvent.date,
-        location: updatedEvent.location,
-        capacity: updatedEvent.capacity,
-        price: updatedEvent.price,
-        status: updatedEvent.status,
-        organizer: updatedEvent.organizer
-    }
+    return new EventDTO(updatedEvent)
 }

@@ -3,6 +3,7 @@ import { createHash, isValidPassword } from "../utils/hash.js";
 import { signToken } from "../utils/jwt.js";
 import { env } from "../config/env.js"
 import jwt from "jsonwebtoken";
+import UserDTO from "../dto/user.dto.js";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -39,14 +40,7 @@ export async function registerUser({first_name, last_name, email, password}){
     const hashedPassword = await createHash(password)
     const newUser = await userRepository.createUser({first_name, last_name, email: normalizedEmail, password: hashedPassword});
 
-    return {
-        id: newUser._id,
-        first_name: newUser.first_name,
-        last_name: newUser.last_name,
-        email: newUser.email,
-        role: newUser.role
-    }
-        
+    return new UserDTO(newUser);
 }
 
 export async function loginUser({email, password}){
@@ -67,12 +61,10 @@ export async function loginUser({email, password}){
     }
 
     if(await isValidPassword(password, user.password)){
-        return {
-            id: user._id,
-            email: user.email,
-            role: user.role,
-        }
-
+        return new UserDTO({
+            id: user._id, 
+            email: user.email, 
+            role: user.role,})
         } else{
             const error = new Error("Credenciales invalidas.");
             error.status = 401;
@@ -82,11 +74,5 @@ export async function loginUser({email, password}){
 
 export async function getAllUsers(){
     const users = await userRepository.getAllUsers();
-    return users.map(u => ({
-        id: u._id,
-        first_name: u.first_name,
-        last_name: u.last_name,
-        email: u.email,
-        role: u.role
-    }))
+    return users.map(user => new UserDTO(user))
 }

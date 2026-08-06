@@ -30,5 +30,5 @@ export async function createCategory(category){
     
     const createdCategory = await categoryRepository.createOneCategory(category);
 
-    return createCategory;
+    return createdCategory;
 }

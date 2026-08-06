@@ -3,6 +3,7 @@ import { userRepository } from "../repositories/user.repository.js";
 import { eventRepository } from "../repositories/event.repository.js"
 import { generateReservationCode } from "../utils/utils.js";
 import { sendTicketConfirmEmail } from "../config/nodemailer.js";
+import TicketDTO from "../dto/ticket.dto.js";
 
 export async function purchaseTicket({ user, email, event, quantity }){
 
@@ -60,27 +61,12 @@ export async function purchaseTicket({ user, email, event, quantity }){
         reservationCode: newTicket.reservationCode
     });
 
-    return{
-        id: newTicket._id,
-        user: newTicket.user,
-        event: newTicket.event,
-        quantity: newTicket.quantity,
-        status: newTicket.status,
-        reservationCode: newTicket.reservationCode
-    }
+    return new TicketDTO(newTicket);
 }
 
 export async function getUserTicketsList(userId){
     const tickets = await ticketRepository.getUserTickets(userId);
-    return tickets.map(tick => ({
-        id: tick._id,
-        event: tick.event, 
-        quantity: tick.quantity,
-        status: tick.status,
-        reservationCode: tick.reservationCode,
-        createdAt: tick.createdAt,
-        cancelledAt: tick.cancelledAt
-    }));
+    return tickets.map(tick => new TicketDTO(tick));
 }
 
 export async function cancelTicket(ticketId, userId, role){
@@ -107,13 +93,5 @@ export async function cancelTicket(ticketId, userId, role){
 
     const cancelledTicket = await ticketRepository.updateTicket(ticketId, {status: "cancelled", cancelledAt: new Date()})
 
-    return {
-        id: cancelledTicket._id,
-        event: cancelledTicket.event, 
-        quantity: cancelledTicket.quantity,
-        status: cancelledTicket.status,
-        reservationCode: cancelledTicket.reservationCode,
-        createdAt: cancelledTicket.createdAt,
-        cancelledAt: cancelledTicket.cancelledAt
-    }
+    return new TicketDTO(cancelledTicket);
 }
