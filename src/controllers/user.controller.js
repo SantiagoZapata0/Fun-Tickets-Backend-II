@@ -1,4 +1,3 @@
-import { userModel } from "../models/user.model.js"
 import { getAllUsers } from "../services/user.service.js";
 
 export async function getUsers(req, res, next){
@@ -6,6 +5,6 @@ export async function getUsers(req, res, next){
         const users = await getAllUsers();
         return res.status(200).json({status: "Success", payload: users})
     } catch(err){
-        return res.status(err.status || 500).json({status: "Failed", payload: err.message})
+        return res.status(err.status || 500).json({status: "Failed", message: err.message})
     }
 }

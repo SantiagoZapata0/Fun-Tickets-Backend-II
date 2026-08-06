@@ -59,10 +59,10 @@ export async function loginUser({email, password}){
         error.status = 401;
         throw error;
     }
-
+    
     if(await isValidPassword(password, user.password)){
         return new UserDTO({
-            id: user._id, 
+            _id: user._id, 
             email: user.email, 
             role: user.role,})
         } else{

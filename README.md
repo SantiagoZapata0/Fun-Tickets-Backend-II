@@ -92,7 +92,7 @@ http://localhost:8080
 |-- package.json
 |-- pnpm-lock.yaml
 |-- README.md
-|-- src
+`-- src
     |-- app.js
     |-- server.js
     |-- public/
@@ -141,14 +141,46 @@ http://localhost:8080
     |   |-- ticket.routes.js
     |   |-- session.routes.js
     |   |-- user.routes.js
-    |   |-- category.routes.js
+    `---|-- category.routes.js
 ```
 
-## Notas sobre la arquitectura
+## Arquitectura en capas
 
-El proyecto sigue una arquitectura en capas: Ruta → Controller → Service → 
-Repository → DAO → Modelo. El flujo de registro de usuarios (`/api/sessions/register`) 
-implementa el patrón completo.
+El proyecto sigue una arquitectura profesional en capas, donde cada una tiene una responsabilidad única y solo se comunica con la capa inmediatamente adyacente:
+
+### DAO (Data Access Object)
+
+Un DAO por entidad principal (`UserDao`, `EventDao`, `TicketDao`, `CategoryDao`). Son los **únicos** archivos del proyecto que importan modelos de Mongoose directamente. Exponen métodos de acceso a datos genéricos (heredados de `Common`, como `getAll`, `getById`) y específicos de cada entidad (`getUserByEmail`, `getEventByTitle`, `getActiveTickets`, etc).
+
+### Repository
+
+Un Repository por entidad principal. Usa el DAO correspondiente; nunca importa modelos directamente. Expone métodos orientados al dominio (`getUserByEmail`, `getFilteredEvents`, `getActiveTicksByUser`), delegando la ejecución real de la query al DAO.
+
+### Service
+
+Concentra **toda** la lógica de negocio: validaciones (formato de email, fechas, cupos, capacidad), control de duplicados, verificación de permisos sobre recursos propios, generación de códigos de reserva, y disparo de notificaciones por email. Los Services consumen exclusivamente Repositories, nunca DAOs ni modelos de Mongoose.
+
+### Controller
+
+Solo coordina request/response: extrae datos de `req.body`/`req.params`/`req.query`, llama al Service correspondiente, y devuelve la respuesta HTTP con el status code adecuado. No calcula cupos, no valida estados de negocio, no importa modelos.
+
+### DTO (Data Transfer Object)
+
+Clases que filtran y dan forma a los datos antes de exponerlos en la respuesta HTTP, evitando enviar el documento crudo de Mongoose (que podría incluir campos sensibles como `password`, o metadatos internos como `__v`).
+
+- **`UserDTO`**: expone `id, first_name, last_name, email, role`. Nunca incluye `password`, ni siquiera hasheada.
+- **`EventDTO`**: expone los campos públicos del evento (`title, description, category, date, location, capacity, price, status, organizer`).
+- **`TicketDTO`**: expone los datos del ticket (`id, quantity, status, reservationCode, createdAt, cancelledAt`). Acepta parámetros opcionales (`includeEvent`, `includeUser`) para incluir, cuando corresponde, una versión filtrada del evento o usuario relacionado (vía `populate`) — sin exponer nunca datos sensibles del documento poblado.
+
+### Manejo de errores
+
+Los Services crean errores con un código HTTP explícito (`error.status = 400/401/403/404/409`) según el tipo de problema. Los Controllers capturan esos errores en un `catch` uniforme y responden siempre con el mismo formato:
+
+```json
+{ "status": "Failed", "message": "Descripción del error" }
+```
+
+Esto garantiza que la API nunca responda con `500` para errores de negocio esperables (datos inválidos, falta de permisos, recursos inexistentes), reservando ese código exclusivamente para fallos internos no anticipados.
 
 ## Autenticación con Passport.js
 
@@ -472,7 +504,7 @@ Inicia sesión y devuelve un JWT en una cookie `httpOnly` llamada `currentUser`.
 
 **Error (401):** siempre devuelve el mismo mensaje, sin distinguir la causa:
 ```json
-{ "status": "Failed", "payload": "Credenciales inválidas." }
+{ "status": "Failed", "message": "Credenciales inválidas." }
 ```
 
 ---
@@ -494,7 +526,7 @@ Devuelve los datos del usuario autenticado. Requiere la cookie `currentUser` vá
 
 **Error (401):** si falta la cookie o el token es inválido/expiró.
 ```json
-{ "status": "Failed", "payload": "jwt malformed" }
+{ "status": "Failed", "message": "jwt malformed" }
 ```
 
 ---

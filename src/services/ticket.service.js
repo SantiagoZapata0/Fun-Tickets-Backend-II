@@ -66,7 +66,7 @@ export async function purchaseTicket({ user, email, event, quantity }){
 
 export async function getUserTicketsList(userId){
     const tickets = await ticketRepository.getUserTickets(userId);
-    return tickets.map(tick => new TicketDTO(tick));
+    return tickets.map(tick => new TicketDTO(tick, {includeEvent: true}));
 }
 
 export async function cancelTicket(ticketId, userId, role){
